@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TEMPLE KEY v0.11</title>
+<title>TEMPLE KEY v0.12</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -570,7 +570,7 @@ function resetLevel() {
   idolCollected = false;
   levelComplete = false;
   levelCompleteTimer = 0;
-  levelStartTime = Date.now();
+  levelStartTime = 0; // set when splash dismissed
   enemiesKilled = 0;
   score = 0;
   scorePopups = [];
@@ -920,9 +920,18 @@ const player = {
 const keys = {};
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
-  if (!audioCtx) { getAudio(); if (splashActive) playMusic(); }
-  // Any key dismisses journal
-  if (splashActive) { splashActive = false; stopMusic(); return; }
+  if (splashActive) {
+    getAudio();
+    audioCtx.resume().then(() => {
+      startMusic();
+      setTimeout(() => {
+        splashActive = false;
+        stopMusic();
+        levelStartTime = Date.now();
+      }, 200);
+    });
+    return;
+  }
   if (journalMsgTimer > 0) { journalMsgTimer = 0; return; } // ignoruj auto-repeat klawiatury!
   keys[e.code] = true;
   if (e.code === 'Enter' && levelComplete && levelCompleteTimer > 60) { resetLevel(); return; }
@@ -946,7 +955,7 @@ function stopMusic() {
   musicScheduled = false;
 }
 
-function playMusic() {
+function startMusic() {
   if (musicPlaying) return;
   try {
     const ac = getAudio();
@@ -1554,9 +1563,7 @@ function update() {
   // Splash screen – increment timer, block gameplay
   if (splashActive) {
     splashTimer++;
-    // Auto-start music on first frame if audio context ready
-    if (splashTimer === 2 && audioCtx) playMusic();
-    if (splashTimer > 300) { splashActive = false; stopMusic(); }
+    if (splashTimer > 270) { splashActive = false; stopMusic(); levelStartTime = Date.now(); }
     return;
   }
 
@@ -2962,8 +2969,8 @@ function drawHUD() {
   const cx = canvas.width / 2;
 
   // ── TIMER – centrum u góry ──────────────────────────────────────
-  const now = levelComplete ? levelFinishTime : Date.now();
-  const elapsed = Math.max(0, now - levelStartTime);
+  const now = (levelStartTime === 0) ? 0 : (levelComplete ? levelFinishTime : Date.now());
+  const elapsed = (levelStartTime === 0) ? 0 : Math.max(0, now - levelStartTime);
   const mins = Math.floor(elapsed / 60000).toString().padStart(2, '0');
   const secs = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
   const ms   = Math.floor((elapsed % 1000) / 10).toString().padStart(2, '0');
@@ -3392,7 +3399,8 @@ function drawSplash() {
   if (blink && t > 1) {
     ctx.font = '8px "Press Start 2P"';
     ctx.fillStyle = '#c9a84ccc';
-    ctx.fillText('PRESS ANY KEY TO START', cx, cy + 85);
+    ctx.fillStyle = '#c9a84ccc';
+    ctx.fillText('TAP TO START', cx, cy + 85);
   }
 
   // Small temple icon decoration
@@ -3592,7 +3600,18 @@ resizeCanvas();
 
 // Prevent scroll/zoom
 document.addEventListener('touchstart', e => {
-  if (splashActive) { if (!audioCtx) { getAudio(); playMusic(); } stopMusic(); splashActive = false; return; }
+  if (splashActive) {
+    getAudio();
+    audioCtx.resume().then(() => {
+      startMusic();
+      setTimeout(() => {
+        splashActive = false;
+        stopMusic();
+        levelStartTime = Date.now();
+      }, 200);
+    });
+    return;
+  }
   if (journalMsgTimer > 0) { journalMsgTimer = 0; }
 }, { passive: true });
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
@@ -3646,10 +3665,25 @@ function setupTouchButtons() {
 
 setupTouchButtons();
 
+// Canvas click during splash
+canvas.addEventListener('click', () => {
+  if (!splashActive) return;
+  getAudio();
+  audioCtx.resume().then(() => {
+    startMusic();
+    setTimeout(() => {
+      splashActive = false;
+      stopMusic();
+      levelStartTime = Date.now();
+    }, 200);
+  });
+});
+
+
 // Zapisz pozycję startową gracza i zainicjalizuj wrogów
 playerStartX = player.x;
 playerStartY = player.y;
-levelStartTime = Date.now();
+levelStartTime = 0; // timer starts when splash dismissed
 initEnemies();
 gameLoop();
 </script>
