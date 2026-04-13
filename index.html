@@ -2,88 +2,127 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TEMPLE KEY v0.10</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TEMPLE KEY v0.11</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
+  html, body {
+    width: 100%; height: 100%;
     background: #0a0705;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
     font-family: 'Press Start 2P', monospace;
-    overflow: hidden;
   }
 
-  #title {
-    color: #c9a84c;
-    font-size: 13px;
-    letter-spacing: 4px;
-    margin-bottom: 10px;
-    text-shadow: 0 0 20px #c9a84c88;
-  }
-
-  #version {
-    color: #6b5a3a;
-    font-size: 7px;
-    margin-bottom: 12px;
-    letter-spacing: 2px;
+  #gameWrapper {
+    position: relative;
+    display: inline-block;
   }
 
   #gameCanvas {
-    border: 3px solid #5a3e1b;
-    box-shadow: 0 0 40px #c9a84c33, inset 0 0 60px #00000088;
+    border: 2px solid #5a3e1b;
+    box-shadow: 0 0 30px #c9a84c22;
     image-rendering: pixelated;
     display: block;
+    touch-action: none;
   }
 
-  #hud {
-    display: flex;
-    gap: 30px;
-    margin-top: 10px;
-    color: #c9a84c;
-    font-size: 7px;
-    letter-spacing: 1px;
-  }
-
-  #controls {
-    margin-top: 8px;
-    color: #4a3a22;
-    font-size: 6px;
-    letter-spacing: 1px;
-    text-align: center;
-    line-height: 2;
-  }
-
-  .key-highlight { color: #c9a84c; }
-
-  #msg {
+  /* ── TOUCH CONTROLS ── */
+  #touchControls {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #f0d080;
-    font-size: 9px;
-    text-align: center;
-    background: #00000099;
-    padding: 10px 16px;
-    border: 1px solid #c9a84c44;
+    bottom: 0; left: 0; right: 0;
+    height: 160px;
     pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s;
   }
+
+  .touch-btn {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(201,168,76,0.15);
+    border: 2px solid rgba(201,168,76,0.4);
+    color: #c9a84c;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: all;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+    transition: background 0.05s;
+    line-height: 1;
+  }
+  .touch-btn:active, .touch-btn.pressed {
+    background: rgba(201,168,76,0.45);
+    border-color: rgba(201,168,76,0.9);
+  }
+
+  /* D-PAD */
+  #dpad { position: absolute; left: 16px; bottom: 12px; width: 132px; height: 132px; }
+  #btn-up    { width:42px;height:42px; top:0;   left:45px; border-radius:8px; }
+  #btn-left  { width:42px;height:42px; top:45px;left:0;    border-radius:8px; }
+  #btn-right { width:42px;height:42px; top:45px;right:0;   border-radius:8px; }
+  #btn-down  { width:42px;height:42px; bottom:0;left:45px; border-radius:8px; }
+  #btn-up span, #btn-down span, #btn-left span, #btn-right span { font-size:16px; }
+
+  /* ACTION BUTTONS */
+  #actions { position: absolute; right: 16px; bottom: 12px; width: 160px; height: 130px; }
+  #btn-whip  { width:54px;height:54px; top:0;    right:52px; }
+  #btn-build { width:54px;height:54px; bottom:0; left:0; }
+  #btn-break { width:54px;height:54px; bottom:0; right:0; }
+  #btn-whip span  { font-size:22px; }
+  #btn-build span { display:flex;flex-direction:column;align-items:center;gap:1px; }
+  #btn-break span { display:flex;flex-direction:column;align-items:center;gap:1px; }
+  .btn-label { font-size:5px; color:#c9a84c99; margin-top:2px; letter-spacing:0; }
+
+  /* Desktop: nascunij touch controls */
+  @media (hover: hover) and (pointer: fine) {
+    #touchControls { display: none; }
+  }
+
+  #hud { display:none; }
+  #controls { display:none; }
+  #title { display:none; }
+  #version { display:none; }
 </style>
 </head>
 <body>
 
-<div id="title">⛩ TEMPLE KEY</div>
-<div id="version">PROTOTYP v0.8 — AUDIO UPDATE</div>
-<canvas id="gameCanvas" width="640" height="448"></canvas>
+<div id="gameWrapper">
+  <canvas id="gameCanvas" width="640" height="448"></canvas>
+
+  <div id="touchControls">
+    <!-- D-PAD -->
+    <div id="dpad">
+      <div class="touch-btn" id="btn-up"><span>▲</span></div>
+      <div class="touch-btn" id="btn-left"><span>◀</span></div>
+      <div class="touch-btn" id="btn-right"><span>▶</span></div>
+      <div class="touch-btn" id="btn-down"><span>▼</span></div>
+    </div>
+    <!-- ACTION BUTTONS -->
+    <div id="actions">
+      <div class="touch-btn" id="btn-whip"><span>🏹</span></div>
+      <div class="touch-btn" id="btn-build">
+        <span><span style="font-size:18px">🔨</span><span class="btn-label">BUILD</span></span>
+      </div>
+      <div class="touch-btn" id="btn-break">
+        <span><span style="font-size:18px">💥</span><span class="btn-label">BREAK</span></span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="hud">
   <span>BLOCKS: <span id="blockCount">0</span></span>
@@ -3215,6 +3254,81 @@ function gameLoop() {
   update();
   requestAnimationFrame(gameLoop);
 }
+
+
+// ─── CANVAS SCALING ───────────────────────────────────────────────
+const GAME_W = 640, GAME_H = 448;
+
+function resizeCanvas() {
+  const wrapper = document.getElementById('gameWrapper');
+  const controls = document.getElementById('touchControls');
+  const isMobile = window.innerWidth <= 900 || 'ontouchstart' in window;
+  const reservedBottom = isMobile ? 160 : 0;
+  const scaleX = window.innerWidth / GAME_W;
+  const scaleY = (window.innerHeight - reservedBottom) / GAME_H;
+  const scale = Math.min(scaleX, scaleY, 2.0); // max 2x zoom
+  const w = Math.floor(GAME_W * scale);
+  const h = Math.floor(GAME_H * scale);
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  wrapper.style.width  = w + 'px';
+  wrapper.style.height = (h + (isMobile ? reservedBottom : 0)) + 'px';
+  if (controls) controls.style.width = w + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Prevent scroll/zoom
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+
+// ─── TOUCH INPUT ──────────────────────────────────────────────────
+const touchMap = {
+  'btn-up':    () => { keys['ArrowUp'] = true; },
+  'btn-down':  () => { keys['ArrowDown'] = true; },
+  'btn-left':  () => { keys['ArrowLeft'] = true; },
+  'btn-right': () => { keys['ArrowRight'] = true; },
+  'btn-build': () => { if (!audioCtx) getAudio(); placeBlock(); },
+  'btn-break': () => { if (!audioCtx) getAudio(); destroyBlock(); },
+  'btn-whip':  () => { if (!audioCtx) getAudio(); toggleWhip(); },
+};
+
+const touchReleaseMap = {
+  'btn-up':    () => { keys['ArrowUp']    = false; },
+  'btn-down':  () => { keys['ArrowDown']  = false; },
+  'btn-left':  () => { keys['ArrowLeft']  = false; },
+  'btn-right': () => { keys['ArrowRight'] = false; },
+};
+
+// Track active touches per button
+const activeTouches = {};
+
+function setupTouchButtons() {
+  const btns = document.querySelectorAll('.touch-btn');
+  btns.forEach(btn => {
+    const id = btn.id;
+
+    btn.addEventListener('touchstart', e => {
+      e.preventDefault();
+      btn.classList.add('pressed');
+      if (touchMap[id]) touchMap[id]();
+    }, { passive: false });
+
+    btn.addEventListener('touchend', e => {
+      e.preventDefault();
+      btn.classList.remove('pressed');
+      if (touchReleaseMap[id]) touchReleaseMap[id]();
+    }, { passive: false });
+
+    btn.addEventListener('touchcancel', e => {
+      btn.classList.remove('pressed');
+      if (touchReleaseMap[id]) touchReleaseMap[id]();
+    });
+  });
+}
+
+setupTouchButtons();
 
 // Zapisz pozycję startową gracza i zainicjalizuj wrogów
 playerStartX = player.x;
