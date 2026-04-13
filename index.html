@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TEMPLE KEY v0.12</title>
+<title>TEMPLE KEY v0.14</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -147,14 +147,9 @@ const actionMsgEl = document.getElementById('actionMsg');
 
 
 // ─── AUDIO SYSTEM (Web Audio API) ────────────────────────────────
-let audioCtx = null;
-
-function getAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
 
 function playTone(freq, type, duration, volume, attack, decay) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
   try {
     const ac = getAudio();
     const osc = ac.createOscillator();
@@ -172,6 +167,7 @@ function playTone(freq, type, duration, volume, attack, decay) {
 }
 
 function playNoise(duration, volume, highpass) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
   try {
     const ac = getAudio();
     const bufSize = ac.sampleRate * duration;
@@ -386,6 +382,7 @@ function sfxDizzy() {
 }
 
 function updateAmbientSounds() {
+  if (!audioCtx || audioCtx.state !== 'running') return;
   if (playerDead || levelComplete) return;
 
   // Pochodnie – co ~90 klatek
@@ -918,21 +915,197 @@ const player = {
 
 // ─── INPUT ───────────────────────────────────────────────────────
 const keys = {};
+
+// ─── AUDIO SYSTEM ────────────────────────────────────────────────
+let audioCtx = null;
+
+function getAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+// ─── MUSIC SYSTEM (ChatGPT architecture: idle→intro→loop) ────────
+let musicNodes = [];
+let musicState  = 'idle'; // 'idle' | 'intro' | 'loop'
+
+function stopMusic() {
+  musicNodes.forEach(n => { try { n.stop(0); } catch(e){} });
+  musicNodes = [];
+  musicState = 'idle';
+}
+
+function startMusic() {
+  if (musicState !== 'idle') return;
+  try {
+    const ac = getAudio();
+    if (ac.state === 'suspended') {
+      ac.resume().then(() => playIntro(ac));
+    } else {
+      playIntro(ac);
+    }
+  } catch(e) { console.warn('Music start error:', e); }
+}
+
+function playIntro(ac) {
+  musicState = 'intro';
+  const t = ac.currentTime;
+
+  // Indiana Jones style fanfare – 3.5s intro
+  const notes = [
+    [392, 0,    0.4, 0.18],
+    [392, 0.45, 0.2, 0.14],
+    [392, 0.7,  0.2, 0.14],
+    [523, 1.0,  0.8, 0.20],  // C – hold
+    [440, 2.0,  0.4, 0.16],
+    [494, 2.5,  0.4, 0.16],
+    [523, 3.0,  1.2, 0.20],  // C – long hold
+  ];
+
+  // Bass drum punches on intro
+  const drums = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+
+  notes.forEach(([f, start, dur, vol]) => {
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = 'square'; osc.frequency.value = f;
+    osc.connect(g); g.connect(ac.destination);
+    const t0 = t + start, t1 = t0 + dur;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t1);
+    osc.start(t0); osc.stop(t1 + 0.05);
+    musicNodes.push(osc);
+  });
+
+  drums.forEach(start => {
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = 'triangle'; osc.frequency.value = 98;
+    osc.connect(g); g.connect(ac.destination);
+    const t0 = t + start;
+    g.gain.setValueAtTime(0.22, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+    osc.start(t0); osc.stop(t0 + 0.2);
+    musicNodes.push(osc);
+  });
+
+  // Transition to loop after intro
+  setTimeout(() => {
+    if (musicState === 'intro') startLoop(ac);
+  }, 3500);
+}
+
+function startLoop(ac) {
+  musicState = 'loop';
+
+  function loop() {
+    if (musicState !== 'loop') return;
+    const t = ac.currentTime;
+    const beat = 60 / 128; // 128 BPM
+
+    // Adventure melody – 8 beat phrase
+    const melody = [
+      [392,0,.4,.17],[392,.5,.2,.14],[392,.75,.2,.14],
+      [523,1,.8,.19],[440,2,.4,.15],[494,2.5,.4,.15],
+      [523,3,.4,.18],[494,3.5,.4,.14],[440,4,.8,.16],
+      [349,5,.4,.14],[392,5.5,.4,.15],[440,6,.4,.17],
+      [494,6.5,.4,.15],[523,7,1.4,.19],
+    ];
+
+    // Run phrase
+    const run = [
+      [659,8.5,.22,.15],[622,8.75,.22,.13],[587,9,.22,.13],
+      [554,9.25,.22,.13],[523,9.5,.4,.17],[494,10,.4,.14],
+      [466,10.5,.4,.14],[440,11,.4,.15],[415,11.5,.22,.12],
+      [392,11.75,.22,.12],[349,12,.4,.14],[392,12.5,.4,.14],
+      [440,13,.7,.16],[392,13.75,.22,.12],
+      [349,14,.9,.15],[330,15,.9,.13],
+    ];
+
+    // Climax
+    const climax = [
+      [523,16,.4,.19],[523,16.5,.22,.15],[523,16.75,.22,.15],
+      [659,17,.9,.21],[587,18,.4,.17],[554,18.5,.4,.15],[523,19,1.8,.19],
+    ];
+
+    [...melody, ...run, ...climax].forEach(([f, b, d, v]) => {
+      const osc = ac.createOscillator(), g = ac.createGain();
+      osc.type = 'square'; osc.frequency.value = f;
+      osc.connect(g); g.connect(ac.destination);
+      const t0 = t + b*beat, t1 = t0 + d*beat;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(v, t0+.01);
+      g.gain.setValueAtTime(v, t1-.03);
+      g.gain.linearRampToValueAtTime(0, t1);
+      osc.start(t0); osc.stop(t1+.05);
+      musicNodes.push(osc);
+    });
+
+    // Bass
+    [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19].forEach(b => {
+      const osc = ac.createOscillator(), g = ac.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = (b % 4 === 2) ? 110 : 98;
+      osc.connect(g); g.connect(ac.destination);
+      const t0 = t + b*beat;
+      g.gain.setValueAtTime(0.20, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0+.18);
+      osc.start(t0); osc.stop(t0+.2);
+      musicNodes.push(osc);
+    });
+
+    // Percussion – snare on offbeats
+    for (let b = 0; b < 20; b++) {
+      try {
+        [0.5, 1.5].forEach(off => {
+          const t0 = t + (b + off) * beat;
+          const buf = ac.createBuffer(1, Math.floor(ac.sampleRate*.055), ac.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/d.length*10);
+          const src = ac.createBufferSource(), g = ac.createGain();
+          const flt = ac.createBiquadFilter(); flt.type='bandpass'; flt.frequency.value=2000;
+          src.buffer=buf; src.connect(flt); flt.connect(g); g.connect(ac.destination);
+          g.gain.value = .09;
+          src.start(t0); src.stop(t0+.06);
+          musicNodes.push(src);
+        });
+      } catch(e){}
+    }
+
+    // Prune old nodes
+    musicNodes = musicNodes.filter(n => {
+      try { return n.playbackState !== 'finished'; } catch(e) { return true; }
+    });
+
+    // Schedule next iteration (21 beats at 128bpm ≈ 9.84s)
+    setTimeout(loop, 9600);
+  }
+
+  loop();
+}
+
+// ─── SPLASH DISMISS ──────────────────────────────────────────────
+function dismissSplash() {
+  if (!splashActive) return;
+  splashActive = false;
+  levelStartTime = Date.now();
+  // Music keeps playing after splash (do NOT stop here)
+}
+
+function handleSplashGesture() {
+  if (!splashActive) return;
+  // Start music FIRST (we are inside user gesture here)
+  startMusic();
+  // Dismiss splash after short delay so user sees it briefly
+  setTimeout(dismissSplash, 1500);
+}
+
+
+// ─── KEYBOARD ────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
-  if (splashActive) {
-    getAudio();
-    audioCtx.resume().then(() => {
-      startMusic();
-      setTimeout(() => {
-        splashActive = false;
-        stopMusic();
-        levelStartTime = Date.now();
-      }, 200);
-    });
-    return;
-  }
-  if (journalMsgTimer > 0) { journalMsgTimer = 0; return; } // ignoruj auto-repeat klawiatury!
+  if (splashActive) { handleSplashGesture(); return; }
+  if (journalMsgTimer > 0) { journalMsgTimer = 0; return; }
   keys[e.code] = true;
   if (e.code === 'Enter' && levelComplete && levelCompleteTimer > 60) { resetLevel(); return; }
   if (e.code === 'KeyZ') placeBlock();
@@ -941,183 +1114,6 @@ document.addEventListener('keydown', e => {
   e.preventDefault();
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
-
-
-// ─── RETRO MUSIC (Indiana Jones / Mummy style) ───────────────────
-let musicPlaying = false;
-let musicNodes = [];
-let musicScheduled = false;
-
-function stopMusic() {
-  musicNodes.forEach(n => { try { n.stop(); } catch(e) {} });
-  musicNodes = [];
-  musicPlaying = false;
-  musicScheduled = false;
-}
-
-function startMusic() {
-  if (musicPlaying) return;
-  try {
-    const ac = getAudio();
-    musicPlaying = true;
-    scheduleMusic(ac, ac.currentTime);
-  } catch(e) {}
-}
-
-function scheduleMusic(ac, startTime) {
-  if (!musicPlaying) return;
-
-  // Indiana Jones style – adventure fanfare
-  // Main theme: pentatonic scale adventure motif
-  const BPM = 132;
-  const beat = 60 / BPM;
-  const s = startTime;
-
-  // Melody notes: [freq, startBeat, durationBeats, volume]
-  const melody = [
-    // Phrase 1 – heroic opening
-    [392, 0,   0.5, 0.18],  // G4
-    [392, 0.5, 0.25,0.15],
-    [392, 0.75,0.25,0.15],
-    [523, 1,   1,   0.20],  // C5 – hold
-    [440, 2,   0.5, 0.16],  // A4
-    [494, 2.5, 0.5, 0.16],  // B4
-    [523, 3,   0.5, 0.18],  // C5
-    [494, 3.5, 0.5, 0.15],
-    [440, 4,   1,   0.17],  // A4 – hold
-
-    // Phrase 2 – tension building
-    [349, 5,   0.5, 0.15],  // F4
-    [392, 5.5, 0.5, 0.16],
-    [440, 6,   0.5, 0.18],
-    [494, 6.5, 0.5, 0.16],
-    [523, 7,   1.5, 0.20],  // C5 hold
-
-    // Phrase 3 – adventure run
-    [659, 8.5, 0.25,0.16],  // E5
-    [622, 8.75,0.25,0.14],
-    [587, 9,   0.25,0.14],
-    [554, 9.25,0.25,0.14],
-    [523, 9.5, 0.5, 0.18],  // C5
-    [494, 10,  0.5, 0.15],
-    [466, 10.5,0.5, 0.15],
-    [440, 11,  0.5, 0.16],
-    [415, 11.5,0.25,0.13],
-    [392, 11.75,0.25,0.13],
-
-    // Phrase 4 – resolve
-    [349, 12,  0.5, 0.15],  // F4
-    [392, 12.5,0.5, 0.15],
-    [440, 13,  0.75,0.17],
-    [392, 13.75,0.25,0.13],
-    [349, 14,  1,   0.16],
-    [330, 15,  1,   0.14],  // E4
-
-    // Phrase 5 – climax
-    [523, 16,  0.5, 0.20],  // C5
-    [523, 16.5,0.25,0.16],
-    [523, 16.75,0.25,0.16],
-    [659, 17,  1,   0.22],  // E5 – high
-    [587, 18,  0.5, 0.18],
-    [554, 18.5,0.5, 0.16],
-    [523, 19,  2,   0.20],  // C5 hold long
-  ];
-
-  // Bass line – tom-tom / temple drums feel
-  const bass = [
-    [98,  0,   0.15, 0.22],   // boom
-    [98,  1,   0.15, 0.18],
-    [110, 2,   0.15, 0.20],
-    [98,  3,   0.15, 0.18],
-    [98,  4,   0.15, 0.22],
-    [98,  5,   0.15, 0.18],
-    [110, 6,   0.15, 0.20],
-    [98,  7,   0.15, 0.18],
-    [98,  8,   0.15, 0.22],
-    [98,  9,   0.15, 0.18],
-    [110, 10,  0.15, 0.20],
-    [98,  11,  0.15, 0.18],
-    [98,  12,  0.15, 0.22],
-    [98,  13,  0.15, 0.18],
-    [110, 14,  0.15, 0.20],
-    [98,  15,  0.15, 0.18],
-    [98,  16,  0.15, 0.22],
-    [98,  17,  0.15, 0.18],
-    [110, 18,  0.15, 0.20],
-    [98,  19,  0.15, 0.18],
-  ];
-
-  // Percussion – snare on 2 and 4
-  const perc = [
-    [1, 0.25], [1, 1.25], [1, 2.25], [1, 3.25],
-    [1, 4.25], [1, 5.25], [1, 6.25], [1, 7.25],
-    [1, 8.25], [1, 9.25], [1,10.25], [1,11.25],
-    [1,12.25], [1,13.25], [1,14.25], [1,15.25],
-    [1,16.25], [1,17.25], [1,18.25], [1,19.25],
-  ];
-
-  const totalBeats = 21;
-
-  // Play melody
-  melody.forEach(([freq, beatStart, dur, vol]) => {
-    const osc = ac.createOscillator();
-    const g   = ac.createGain();
-    osc.connect(g); g.connect(ac.destination);
-    osc.type = 'square';
-    osc.frequency.value = freq;
-    const t0 = s + beatStart * beat;
-    const t1 = t0 + dur * beat;
-    g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(vol, t0 + 0.01);
-    g.gain.setValueAtTime(vol, t1 - 0.04);
-    g.gain.linearRampToValueAtTime(0, t1);
-    osc.start(t0); osc.stop(t1 + 0.05);
-    musicNodes.push(osc);
-  });
-
-  // Play bass
-  bass.forEach(([freq, beatStart, dur, vol]) => {
-    const osc = ac.createOscillator();
-    const g   = ac.createGain();
-    osc.connect(g); g.connect(ac.destination);
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
-    const t0 = s + beatStart * beat;
-    const t1 = t0 + dur * beat;
-    g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(vol, t0 + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, t1);
-    osc.start(t0); osc.stop(t1 + 0.05);
-    musicNodes.push(osc);
-  });
-
-  // Play percussion (noise bursts)
-  perc.forEach(([vol, beatStart]) => {
-    try {
-      const bufSize = Math.floor(ac.sampleRate * 0.08);
-      const buf = ac.createBuffer(1, bufSize, ac.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < bufSize; i++) data[i] = (Math.random()*2-1) * Math.exp(-i/bufSize*12);
-      const src = ac.createBufferSource();
-      src.buffer = buf;
-      const filter = ac.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 2000;
-      const g = ac.createGain();
-      g.gain.value = 0.12;
-      src.connect(filter); filter.connect(g); g.connect(ac.destination);
-      const t0 = s + beatStart * beat;
-      src.start(t0); src.stop(t0 + 0.1);
-      musicNodes.push(src);
-    } catch(e) {}
-  });
-
-  // Schedule loop
-  const loopTime = s + totalBeats * beat;
-  const tid = setTimeout(() => {
-    if (musicPlaying) scheduleMusic(ac, loopTime);
-  }, (totalBeats * beat - 0.5) * 1000);
-}
 
 // ─── HELPERS ─────────────────────────────────────────────────────
 function isSolid(col, row) {
@@ -1563,7 +1559,7 @@ function update() {
   // Splash screen – increment timer, block gameplay
   if (splashActive) {
     splashTimer++;
-    if (splashTimer > 270) { splashActive = false; stopMusic(); levelStartTime = Date.now(); }
+    if (splashTimer > 270) { dismissSplash(); }
     return;
   }
 
@@ -3400,7 +3396,9 @@ function drawSplash() {
     ctx.font = '8px "Press Start 2P"';
     ctx.fillStyle = '#c9a84ccc';
     ctx.fillStyle = '#c9a84ccc';
-    ctx.fillText('TAP TO START', cx, cy + 85);
+    // Show different text based on music state
+    const msg = musicState !== 'idle' ? 'STARTING...' : 'TAP / PRESS KEY';
+    ctx.fillText(msg, cx, cy + 85);
   }
 
   // Small temple icon decoration
@@ -3600,18 +3598,7 @@ resizeCanvas();
 
 // Prevent scroll/zoom
 document.addEventListener('touchstart', e => {
-  if (splashActive) {
-    getAudio();
-    audioCtx.resume().then(() => {
-      startMusic();
-      setTimeout(() => {
-        splashActive = false;
-        stopMusic();
-        levelStartTime = Date.now();
-      }, 200);
-    });
-    return;
-  }
+  if (splashActive) { handleSplashGesture(); return; }
   if (journalMsgTimer > 0) { journalMsgTimer = 0; }
 }, { passive: true });
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
@@ -3666,18 +3653,8 @@ function setupTouchButtons() {
 setupTouchButtons();
 
 // Canvas click during splash
-canvas.addEventListener('click', () => {
-  if (!splashActive) return;
-  getAudio();
-  audioCtx.resume().then(() => {
-    startMusic();
-    setTimeout(() => {
-      splashActive = false;
-      stopMusic();
-      levelStartTime = Date.now();
-    }, 200);
-  });
-});
+canvas.addEventListener('click', () => { handleSplashGesture(); });
+document.addEventListener('click', () => { if (splashActive) handleSplashGesture(); });
 
 
 // Zapisz pozycję startową gracza i zainicjalizuj wrogów
