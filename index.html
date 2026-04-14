@@ -1877,9 +1877,15 @@ function dismissSplash() {
 
 function handleSplashGesture() {
   if (!splashActive) return;
-  // Start music FIRST (we are inside user gesture here)
-  startMusic();
-  // Dismiss splash after short delay so user sees it briefly
+  // Always init + resume AudioContext inside user gesture
+  const ac = getAudio();
+  if (ac.state === 'suspended') {
+    ac.resume().then(() => {
+      startMusic();
+    });
+  } else {
+    startMusic();
+  }
   setTimeout(dismissSplash, 1500);
 }
 
@@ -1887,7 +1893,8 @@ function handleSplashGesture() {
 // ─── KEYBOARD ────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
-  if (!audioCtx) getAudio();
+  getAudio(); // ensure AudioContext exists
+  if (audioCtx.state === 'suspended') audioCtx.resume();
 
   // GAME OVER – name entry
   if (gameOver && enteringName) {
@@ -4276,6 +4283,17 @@ function drawLevelBanner() {
 
 let musicMuted = false;
 
+function drawVersionTag() {
+  if (splashActive) return;
+  ctx.save();
+  ctx.font = '6px "Press Start 2P"';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#c9a84c44';
+  ctx.fillText('v0.17', canvas.width - 8, canvas.height - 8);
+  ctx.textAlign = 'left';
+  ctx.restore();
+}
+
 function drawMuteButton() {
   if (splashActive) return;
   const bx = 6, by = canvas.height / 2 - 16;
@@ -4623,6 +4641,7 @@ function gameLoop() {
   drawOnboarding();
   drawLevelBanner();
   drawMuteButton();
+  drawVersionTag();
   drawStarsHUD();
   drawHUD();
   drawGameOverScreen(); // LAST – overlays everything
@@ -4732,6 +4751,8 @@ function checkMuteClick(x, y) {
 canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
   if (checkMuteClick(e.clientX - rect.left, e.clientY - rect.top)) return;
+  const ac = getAudio();
+  if (ac.state === 'suspended') ac.resume();
   handleSplashGesture();
 });
 document.addEventListener('click', () => { if (splashActive) handleSplashGesture(); });
