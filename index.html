@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TEMPLE KEY v0.18</title>
+<title>TEMPLE KEY v0.19</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -51,59 +51,93 @@
   }
 
   /* ── TOUCH CONTROLS ── */
+  /* ── NEW LANDSCAPE LAYOUT ── */
+  /* gameWrapper in landscape: canvas center, controls on sides */
   #touchControls {
-    position: relative;
-    width: 100%;
-    height: 110px;
+    display: none; /* hidden by default, shown on touch devices */
     pointer-events: none;
-    flex-shrink: 0;
   }
 
-  .touch-btn {
+  /* Left joystick zone */
+  #joystickZone {
+    position: fixed;
+    left: 0; top: 0;
+    width: 150px; height: 100vh;
+    pointer-events: all;
+    touch-action: none;
+    z-index: 10;
+  }
+  #joystickBase {
     position: absolute;
+    width: 110px; height: 110px;
     border-radius: 50%;
-    background: rgba(201,168,76,0.15);
-    border: 2px solid rgba(201,168,76,0.4);
-    color: #c9a84c;
-    font-family: 'Press Start 2P', monospace;
-    font-size: 11px;
+    border: 2px solid rgba(201,168,76,0.25);
+    background: rgba(201,168,76,0.06);
+    left: 20px; bottom: 40px;
+    pointer-events: none;
+  }
+  #joystickKnob {
+    position: absolute;
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: rgba(201,168,76,0.35);
+    border: 2px solid rgba(201,168,76,0.7);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    transition: none;
+  }
+
+  /* Right action zone */
+  #actionZone {
+    position: fixed;
+    right: 0; top: 0;
+    width: 150px; height: 100vh;
+    pointer-events: all;
+    touch-action: none;
+    z-index: 10;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 16px;
+  }
+
+  .action-btn {
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    border: 2px solid rgba(201,168,76,0.5);
+    background: rgba(201,168,76,0.12);
+    color: #c9a84c;
+    font-family: 'Press Start 2P', monospace;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
     pointer-events: all;
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
-    transition: background 0.05s;
-    line-height: 1;
+    user-select: none;
   }
-  .touch-btn:active, .touch-btn.pressed {
-    background: rgba(201,168,76,0.45);
-    border-color: rgba(201,168,76,0.9);
+  .action-btn:active, .action-btn.pressed {
+    background: rgba(201,168,76,0.4);
+    border-color: rgba(201,168,76,1);
   }
+  .action-btn .btn-icon { font-size: 22px; line-height: 1; }
+  .action-btn .btn-lbl  { font-size: 6px; color: #c9a84c99; margin-top: 3px; }
 
-  /* D-PAD */
-  #dpad { position: absolute; left: 12px; top: 8px; width: 96px; height: 96px; }
-  #btn-up    { width:30px;height:30px; top:0;   left:33px; border-radius:6px; }
-  #btn-left  { width:30px;height:30px; top:33px;left:0;    border-radius:6px; }
-  #btn-right { width:30px;height:30px; top:33px;right:0;   border-radius:6px; }
-  #btn-down  { width:30px;height:30px; bottom:0;left:33px; border-radius:6px; }
-  #btn-up span, #btn-down span, #btn-left span, #btn-right span { font-size:12px; }
+  #btn-chisel { border-color: rgba(80,200,80,0.5); background: rgba(80,200,80,0.1); }
+  #btn-chisel:active, #btn-chisel.pressed { background: rgba(80,200,80,0.4); }
+  #btn-whip2  { border-color: rgba(201,168,76,0.5); }
 
-  /* ACTION BUTTONS */
-  #actions { position: absolute; right: 12px; top: 8px; width: 120px; height: 96px; }
-  #btn-whip  { width:40px;height:40px; bottom:0; right:0; }
-  #btn-build { width:40px;height:40px; bottom:0; left:0; }
-  #btn-break { width:40px;height:40px; top:0;    right:40px; }
-  #btn-whip span  { font-size:16px; }
-  #btn-build span { display:flex;flex-direction:column;align-items:center;gap:1px; }
-  #btn-break span { display:flex;flex-direction:column;align-items:center;gap:1px; }
-  .btn-label { font-size:5px; color:#c9a84c99; margin-top:2px; letter-spacing:0; }
-
-  /* Desktop: nascunij touch controls */
+  /* Only show on touch devices */
   @media (hover: hover) and (pointer: fine) {
-    #touchControls { display: none; }
+    #joystickZone { display: none; }
+    #actionZone   { display: none; }
   }
+  @media (hover: none) {
+    #touchControls { display: block; }
+  }
+
+  .btn-label { font-size:5px; color:#c9a84c99; }
 
   #hud { display:none; }
   #controls { display:none; }
@@ -116,24 +150,25 @@
 <div id="gameWrapper">
   <canvas id="gameCanvas" width="640" height="448"></canvas>
 
-  <div id="touchControls">
-    <!-- D-PAD -->
-    <div id="dpad">
-      <div class="touch-btn" id="btn-up"><span>▲</span></div>
-      <div class="touch-btn" id="btn-left"><span>◀</span></div>
-      <div class="touch-btn" id="btn-right"><span>▶</span></div>
-      <div class="touch-btn" id="btn-down"><span>▼</span></div>
-    </div>
-    <!-- ACTION BUTTONS -->
-    <div id="actions">
-      <div class="touch-btn" id="btn-whip"><span>🏹</span></div>
-      <div class="touch-btn" id="btn-build">
-        <span><span style="font-size:18px">🔨</span><span class="btn-label">BUILD</span></span>
-      </div>
-      <div class="touch-btn" id="btn-break">
-        <span><span style="font-size:18px">💥</span><span class="btn-label">BREAK</span></span>
-      </div>
-    </div>
+  <div id="touchControls"></div>
+</div>
+
+<!-- LEFT: Virtual Joystick -->
+<div id="joystickZone">
+  <div id="joystickBase">
+    <div id="joystickKnob" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- RIGHT: Action buttons -->
+<div id="actionZone">
+  <div class="action-btn" id="btn-chisel">
+    <span class="btn-icon">⛏</span>
+    <span class="btn-lbl">BUILD/BREAK</span>
+  </div>
+  <div class="action-btn" id="btn-whip2">
+    <span class="btn-icon">🏹</span>
+    <span class="btn-lbl">WHIP</span>
   </div>
 </div>
 
@@ -1979,8 +2014,18 @@ function dismissSplash() {
   // Music keeps playing after splash (do NOT stop here)
 }
 
+function lockLandscape() {
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  } catch(e) {}
+}
+
 function handleSplashGesture() {
   if (!splashActive) return;
+  // Lock landscape on mobile
+  if ('ontouchstart' in window) lockLandscape();
   // Always init + resume AudioContext inside user gesture
   const ac = getAudio();
   if (ac.state === 'suspended') {
@@ -4444,7 +4489,7 @@ function drawVersionTag() {
   ctx.font = '6px "Press Start 2P"';
   ctx.textAlign = 'right';
   ctx.fillStyle = '#c9a84c44';
-  ctx.fillText('v0.18', canvas.width - 8, canvas.height - 8);
+  ctx.fillText('v0.19', canvas.width - 8, canvas.height - 8);
   ctx.textAlign = 'left';
   ctx.restore();
 }
@@ -4858,22 +4903,18 @@ const GAME_W = 640, GAME_H = 448;
 function resizeCanvas() {
   const wrapper = document.getElementById('gameWrapper');
   const controls = document.getElementById('touchControls');
-  const isMobile = window.innerWidth <= 900 || 'ontouchstart' in window;
-  const reservedBottom = isMobile ? 110 : 0;
-  const scaleX = window.innerWidth  / GAME_W;
-  const scaleY = (window.innerHeight - reservedBottom) / GAME_H;
+  const isMobile = 'ontouchstart' in window || window.innerWidth <= 900;
+  // Controls are on left/right sides – no bottom reserved space
+  const sideW = isMobile ? 150 : 0;
+  const scaleX = (window.innerWidth - sideW * 2) / GAME_W;
+  const scaleY = window.innerHeight / GAME_H;
   const scale  = Math.min(scaleX, scaleY, 2.0);
   const w = Math.floor(GAME_W * scale);
   const h = Math.floor(GAME_H * scale);
   canvas.style.width  = w + 'px';
   canvas.style.height = h + 'px';
-  if (controls) {
-    controls.style.width   = w + 'px';
-    controls.style.height  = '110px';
-    controls.style.display = isMobile ? 'block' : 'none';
-  }
   wrapper.style.width  = w + 'px';
-  wrapper.style.height = (h + (isMobile ? reservedBottom : 0)) + 'px';
+  wrapper.style.height = h + 'px';
 }
 
 window.addEventListener('resize', resizeCanvas);
@@ -4927,51 +4968,137 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 
 // ─── TOUCH INPUT ──────────────────────────────────────────────────
-const touchMap = {
-  'btn-up':    () => { keys['ArrowUp'] = true; },
-  'btn-down':  () => { keys['ArrowDown'] = true; },
-  'btn-left':  () => { keys['ArrowLeft'] = true; },
-  'btn-right': () => { keys['ArrowRight'] = true; },
-  'btn-build': () => { if (!audioCtx) getAudio(); placeBlock(); },
-  'btn-break': () => { if (!audioCtx) getAudio(); destroyBlock(); },
-  'btn-whip':  () => { if (!audioCtx) getAudio(); toggleWhip(); },
-};
+// ─── NEW TOUCH SYSTEM: Joystick + 2 buttons ────────────────────
 
-const touchReleaseMap = {
-  'btn-up':    () => { keys['ArrowUp']    = false; },
-  'btn-down':  () => { keys['ArrowDown']  = false; },
-  'btn-left':  () => { keys['ArrowLeft']  = false; },
-  'btn-right': () => { keys['ArrowRight'] = false; },
-};
-
-// Track active touches per button
-const activeTouches = {};
-
-function setupTouchButtons() {
-  const btns = document.querySelectorAll('.touch-btn');
-  btns.forEach(btn => {
-    const id = btn.id;
-
-    btn.addEventListener('touchstart', e => {
-      e.preventDefault();
-      btn.classList.add('pressed');
-      if (touchMap[id]) touchMap[id]();
-    }, { passive: false });
-
-    btn.addEventListener('touchend', e => {
-      e.preventDefault();
-      btn.classList.remove('pressed');
-      if (touchReleaseMap[id]) touchReleaseMap[id]();
-    }, { passive: false });
-
-    btn.addEventListener('touchcancel', e => {
-      btn.classList.remove('pressed');
-      if (touchReleaseMap[id]) touchReleaseMap[id]();
-    });
-  });
+// Smart chisel: build if empty, break if own block
+function smartChisel() {
+  if (!audioCtx) getAudio();
+  const target = getChiselTarget();
+  if (!target) return;
+  const { col, row } = target;
+  if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
+  const tile = tileMap[row][col];
+  if (tile === 'P') {
+    destroyBlock();
+  } else if (tile === '.' || tile === ' ') {
+    placeBlock();
+  }
 }
 
-setupTouchButtons();
+// Action buttons
+function setupActionButtons() {
+  const chisel = document.getElementById('btn-chisel');
+  const whip   = document.getElementById('btn-whip2');
+  if (!chisel || !whip) return;
+
+  chisel.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!audioCtx) getAudio();
+    chisel.classList.add('pressed');
+    smartChisel();
+  }, { passive: false });
+  chisel.addEventListener('touchend',   e => { e.preventDefault(); chisel.classList.remove('pressed'); }, { passive: false });
+  chisel.addEventListener('touchcancel',e => { chisel.classList.remove('pressed'); });
+
+  whip.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!audioCtx) getAudio();
+    whip.classList.add('pressed');
+    toggleWhip();
+  }, { passive: false });
+  whip.addEventListener('touchend',   e => { e.preventDefault(); whip.classList.remove('pressed'); }, { passive: false });
+  whip.addEventListener('touchcancel',e => { whip.classList.remove('pressed'); });
+}
+
+setupActionButtons();
+
+// Virtual Joystick
+let joystickActive = false;
+let joystickTouchId = null;
+let joystickStartX = 0, joystickStartY = 0;
+let joystickCx = 75, joystickCy = 0; // center of base
+
+const joystickZone = document.getElementById('joystickZone');
+const joystickBase = document.getElementById('joystickBase');
+const joystickKnob = document.getElementById('joystickKnob');
+
+function getJoystickCenter() {
+  if (!joystickBase) return { x: 75, y: window.innerHeight - 95 };
+  const r = joystickBase.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+function updateJoystick(cx, cy, tx, ty) {
+  const dx = tx - cx;
+  const dy = ty - cy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxR = 42;
+  const clampedDist = Math.min(dist, maxR);
+  const angle = Math.atan2(dy, dx);
+  const kx = cx + Math.cos(angle) * clampedDist;
+  const ky = cy + Math.sin(angle) * clampedDist;
+
+  // Position knob relative to joystickBase
+  const baseRect = joystickBase.getBoundingClientRect();
+  joystickKnob.style.left = (kx - baseRect.left) + 'px';
+  joystickKnob.style.top  = (ky - baseRect.top)  + 'px';
+  joystickKnob.style.display = 'block';
+
+  // Map to keys
+  const threshold = 12;
+  keys['ArrowLeft']  = dx < -threshold;
+  keys['ArrowRight'] = dx >  threshold;
+  // Swipe up = jump
+  if (dy < -threshold * 2.5 && !keys['ArrowUp']) {
+    keys['ArrowUp'] = true;
+    setTimeout(() => { keys['ArrowUp'] = false; }, 120);
+  }
+}
+
+function resetJoystick() {
+  keys['ArrowLeft'] = keys['ArrowRight'] = false;
+  if (joystickKnob) joystickKnob.style.display = 'none';
+}
+
+if (joystickZone) {
+  joystickZone.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!audioCtx) getAudio();
+    if (joystickActive) return;
+    const t = e.changedTouches[0];
+    joystickTouchId = t.identifier;
+    joystickActive  = true;
+    const c = getJoystickCenter();
+    joystickCx = c.x; joystickCy = c.y;
+    updateJoystick(joystickCx, joystickCy, t.clientX, t.clientY);
+  }, { passive: false });
+
+  joystickZone.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.touches) {
+      if (t.identifier === joystickTouchId) {
+        updateJoystick(joystickCx, joystickCy, t.clientX, t.clientY);
+        break;
+      }
+    }
+  }, { passive: false });
+
+  joystickZone.addEventListener('touchend', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === joystickTouchId) {
+        joystickActive  = false;
+        joystickTouchId = null;
+        resetJoystick();
+        break;
+      }
+    }
+  }, { passive: false });
+
+  joystickZone.addEventListener('touchcancel', () => {
+    joystickActive = false; joystickTouchId = null; resetJoystick();
+  });
+}
 
 // Canvas click during splash
 
