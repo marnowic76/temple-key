@@ -493,8 +493,8 @@ function updateAmbientSounds() {
 const T = 32; // TILE SIZE
 const COLS = 20;
 const ROWS = 14;
-const GRAVITY = 0.5;
-const JUMP_POWER = -10.5;
+const GRAVITY = 0.65;
+const JUMP_POWER = -10;
 const SPEED = 4.5;
 const ACCEL = 0.55;       // przyspieszenie
 const DECEL = 0.78;       // hamowanie
@@ -2641,7 +2641,7 @@ function update() {
   }
   // Wyższy skok gdy trzymamy klawisz
   if (!(keys['ArrowUp'] || keys['Space']) && player.velY < -4) {
-    player.velY += 1.2; // variable jump height
+    player.velY += 1.4; // variable jump height - faster cut
   }
   // Reset bufora gdy stoimy
   if (player.grounded) player.jumpBuffered = false;
@@ -2668,8 +2668,10 @@ function update() {
     } else {
       if (player.velY > 0) {
         player.grounded = true;
+        player.velY = 0; // hard stop - no bounce
+      } else {
+        player.velY = 0;
       }
-      player.velY = 0;
       break;
     }
   }
